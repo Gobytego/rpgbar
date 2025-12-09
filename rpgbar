@@ -75,7 +75,7 @@ EOF
 load_stats() {
     if [ -f "$RPG_SAVE_FILE" ]; then
         source "$RPG_SAVE_FILE" 2>/dev/null
-    fi
+    fi 
     
     # Defaults if file missing or empty
     : ${RPG_LEVEL:=1}
@@ -208,8 +208,8 @@ draw_rpg_hud() {
     
     # Prepare Content strings 
     
-    # **NEW FIX:** Use the `hostname` command explicitly
-    local current_host=$(hostname)
+    # Use $HOSTNAME first, then explicitly run `hostname`
+    local current_host="${HOSTNAME:-$(hostname)}"
     
     local raw_loc=$(pwd)
     if [ ${#raw_loc} -gt 30 ]; then

@@ -208,7 +208,14 @@ draw_rpg_hud() {
     
     # Prepare Content strings 
     # NOTE: We use \033[39m to reset Foreground color only, keeping Background active
-    local name_line=" \033[39mHero: \033[36m$USER\033[39m | Location: \033[35m$(pwd | sed "s|$HOME|~|")\033[39m "
+    
+    # FIX: Get PWD, truncate only if massive, but do NOT replace with ~
+    local raw_loc=$(pwd)
+    if [ ${#raw_loc} -gt 30 ]; then
+        raw_loc="...${raw_loc: -27}"
+    fi
+    
+    local name_line=" \033[39mHero: \033[36m$USER\033[39m | Location: \033[35m$raw_loc\033[39m "
     
     local stat_line=""
     local bonus=0

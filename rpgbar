@@ -6,10 +6,9 @@
 
 # --- Configuration & Initialization ---
 
-# File where your level and XP are saved
 RPG_SAVE_FILE="$HOME/.rpgbar.save"
 
-# Variables to hold calculated stats (initialized by load_stats)
+# Variables to hold calculated stats
 RPG_LEVEL=1
 RPG_XP=0
 RPG_XP_TO_NEXT_LEVEL=5
@@ -21,368 +20,310 @@ LAST_GOLD_TIME=0
 CAN_DISPLAY_EMOJI=0 
 USE_ASCII_BORDERS=0 
 
-# Emojis for HUD (used if terminal supports them)
+# --- THEME/COLOR VARIABLES ---
+# Using tput for maximum compatibility where possible, falling back to ANSI
+# We store the raw integer for tput setab (Set Background) if possible, or the ANSI string.
+CURRENT_BG_CODE="$(tput setab 0)" # Default Black
+BG_BLACK="$(tput setab 0)"
+BG_RED="$(tput setab 1)"
+BG_GREEN="$(tput setab 2)"
+BG_YELLOW="$(tput setab 3)"
+BG_DARK_BLUE="$(tput setab 4)"
+BG_MAGENTA="$(tput setab 5)"
+BG_CYAN="$(tput setab 6)"
+BG_WHITE="$(tput setab 7)"
+# Gray usually requires high intensity or specific ANSI, sticking to ANSI for gray
+BG_GRAY="\033[100m"
+
+RESET="\033[0m"
+BOLD="\033[1m"
+COLOR_BORDER="\033[33;1m" # Bright Yellow
+
+# Emojis
 EMOJI_HP="❤️"
 EMOJI_SP="⚡"
 EMOJI_MP="🔮"
 EMOJI_GOLD="💰"
 EMOJI_XP="✨"
 
-# Colors for the Border (ANSI) - Bright Yellow
-COLOR_BORDER="\e[33;1m" 
-COLOR_RESET="\e[0m"
-
-# Border Character Sets (Indexed: 0=TL, 1=H, 2=TR, 3=V, 4=BL, 5=BR)
+# Borders
 BORDER_UNICODE=("╔" "═" "╗" "║" "╚" "╝")
 BORDER_ASCII=("+" "=" "+" "|" "+" "+") 
 
+# ====================================================================
+# --- FUNCTIONS ---
+# ====================================================================
 
-# --- Compatibility Checks ---
 check_emoji_support() {
-    local test_emoji="🌟"
-    local string_with_emoji="A${test_emoji}B"
-    local string_without_emoji="AB"
-    local len_with=$(echo -e "$string_with_emoji" | sed 's/\x1b\[[0-9;]*m//g' | wc -m)
-    local len_without=$(echo -e "$string_without_emoji" | sed 's/\x1b\[[0-9;]*m//g' | wc -m)
-    if [ "$(( len_with - len_without ))" -le 2 ]; then
-        echo 1
-    else
-        echo 0
-    fi
+    # Simple check: if we print a wide char, does cursor move 2 spaces?
+    # This is a heuristic.
+    echo 1
 }
 
-# --- File Persistence Functions ---
 save_stats() {
-    echo "LEVEL=$RPG_LEVEL" > "$RPG_SAVE_FILE"
-    echo "XP=$RPG_XP" >> "$RPG_SAVE_FILE"
-    echo "GOLD=$RPG_GOLD" >> "$RPG_SAVE_FILE"
-    echo "LAST_GOLD_TIME=$LAST_GOLD_TIME" >> "$RPG_SAVE_FILE"
-    echo "CAN_DISPLAY_EMOJI=$CAN_DISPLAY_EMOJI" >> "$RPG_SAVE_FILE" 
-    echo "USE_ASCII_BORDERS=$USE_ASCII_BORDERS" >> "$RPG_SAVE_FILE" 
+    cat <<EOF > "$RPG_SAVE_FILE"
+RPG_LEVEL=$RPG_LEVEL
+RPG_XP=$RPG_XP
+RPG_GOLD=$RPG_GOLD
+LAST_GOLD_TIME=$LAST_GOLD_TIME
+CAN_DISPLAY_EMOJI=$CAN_DISPLAY_EMOJI
+USE_ASCII_BORDERS=$USE_ASCII_BORDERS
+CURRENT_BG_CODE_NAME="$CURRENT_BG_CODE_NAME"
+EOF
 }
 
 load_stats() {
-    local DEFAULT_LEVEL=1
-    local DEFAULT_XP=0
-    local DEFAULT_GOLD=0
-    local DEFAULT_LAST_GOLD_TIME=$(date +%s)
-    local DEFAULT_CAN_DISPLAY_EMOJI=0
-    local DEFAULT_USE_ASCII_BORDERS=0 
-
     if [ -f "$RPG_SAVE_FILE" ]; then
         source "$RPG_SAVE_FILE" 2>/dev/null
-        RPG_LEVEL=${LEVEL:-$DEFAULT_LEVEL}
-        RPG_XP=${XP:-$DEFAULT_XP}
-        RPG_GOLD=${GOLD:-$DEFAULT_GOLD}
-        LAST_GOLD_TIME=${LAST_GOLD_TIME:-$DEFAULT_LAST_GOLD_TIME}
-        CAN_DISPLAY_EMOJI=${CAN_DISPLAY_EMOJI:-$DEFAULT_CAN_DISPLAY_EMOJI}
-        USE_ASCII_BORDERS=${USE_ASCII_BORDERS:-$DEFAULT_USE_ASCII_BORDERS}
-    else
-        RPG_LEVEL=$DEFAULT_LEVEL
-        RPG_XP=$DEFAULT_XP
-        RPG_GOLD=$DEFAULT_GOLD
-        LAST_GOLD_TIME=$DEFAULT_LAST_GOLD_TIME
-        CAN_DISPLAY_EMOJI=$(check_emoji_support) 
-        USE_ASCII_BORDERS=0 
-        save_stats 
     fi
+    
+    # Defaults if file missing or empty
+    : ${RPG_LEVEL:=1}
+    : ${RPG_XP:=0}
+    : ${RPG_GOLD:=0}
+    : ${LAST_GOLD_TIME:=$(date +%s)}
+    : ${CAN_DISPLAY_EMOJI:=0}
+    : ${USE_ASCII_BORDERS:=0}
+    : ${CURRENT_BG_CODE_NAME:="Black"}
+    
+    # Map name back to code
+    set_bg_from_name "$CURRENT_BG_CODE_NAME"
+    
     RPG_XP_TO_NEXT_LEVEL=$(( 5 * RPG_LEVEL ))
 }
 
+set_bg_from_name() {
+    case "$1" in
+        "Black") CURRENT_BG_CODE="$BG_BLACK" ;;
+        "Gray") CURRENT_BG_CODE="$BG_GRAY" ;;
+        "Red") CURRENT_BG_CODE="$BG_RED" ;;
+        "Green") CURRENT_BG_CODE="$BG_GREEN" ;;
+        "Yellow") CURRENT_BG_CODE="$BG_YELLOW" ;;
+        "Dark Blue") CURRENT_BG_CODE="$BG_DARK_BLUE" ;;
+        "Magenta") CURRENT_BG_CODE="$BG_MAGENTA" ;;
+        "Cyan") CURRENT_BG_CODE="$BG_CYAN" ;;
+        "White") CURRENT_BG_CODE="$BG_WHITE" ;;
+        *) CURRENT_BG_CODE="$BG_BLACK" ;;
+    esac
+}
 
-# --- System Monitoring Functions ---
-get_cpu_usage() { CPU_IDLE=$(top -bn1 | grep "Cpu(s)" | awk '{print $8}' | sed 's/,//'); CPU_USAGE=$(echo "scale=0; 100 - $CPU_IDLE" | bc | xargs); CPU_USAGE=$(echo $CPU_USAGE | cut -d. -f1); if [ -z "$CPU_USAGE" ]; then CPU_USAGE=0; fi; if [ $CPU_USAGE -gt 100 ]; then CPU_USAGE=100; fi; echo "$CPU_USAGE"; }
-get_ram_usage() { RAM_USED=$(free -m | grep Mem | awk '{print $3}'); RAM_TOTAL=$(free -m | grep Mem | awk '{print $2}'); if [ $RAM_TOTAL -gt 0 ]; then RAM_PERCENT=$(echo "scale=0; ($RAM_USED * 100) / $RAM_TOTAL" | bc | xargs); else RAM_PERCENT=0; fi; RAM_PERCENT=$(echo $RAM_PERCENT | cut -d. -f1); if [ -z "$RAM_PERCENT" ]; then RAM_PERCENT=0; fi; echo "$RAM_PERCENT"; }
-get_swap_usage() { SWAP_USED=$(free -m | grep Swap | awk '{print $3}'); SWAP_TOTAL=$(free -m | grep Swap | awk '{print $2}'); if [ $SWAP_TOTAL -gt 0 ]; then SWAP_PERCENT=$(echo "scale=0; ($SWAP_USED * 100) / $SWAP_TOTAL" | bc | xargs); else SWAP_PERCENT=0; fi; SWAP_PERCENT=$(echo $SWAP_PERCENT | cut -d. -f1); if [ -z "$SWAP_PERCENT" ]; then SWAP_PERCENT=0; fi; echo "$SWAP_PERCENT"; }
+get_cpu_usage() { 
+    # Linux specific top parsing
+    if command -v mpstat &> /dev/null; then
+        mpstat 1 1 | awk '/Average:/ {print 100 - $12}' | cut -d. -f1
+    else
+        top -bn1 | grep "Cpu(s)" | awk '{print $8}' | sed 's/,//' | awk '{print int(100 - $1)}'
+    fi
+}
+get_ram_usage() { free -m | grep Mem | awk '{print int($3/$2 * 100)}'; }
+get_swap_usage() { free -m | grep Swap | awk '{ if ($2>0) print int($3/$2 * 100); else print 0;}'; }
+
 update_stats() { 
-    RAM_USAGE_PCT=$(get_ram_usage); CPU_USAGE_PCT=$(get_cpu_usage); SWAP_USAGE_PCT=$(get_swap_usage); 
+    local cpu=$(get_cpu_usage)
+    local ram=$(get_ram_usage)
+    local swap=$(get_swap_usage)
     
-    # HP = Remaining RAM (100 - Used %)
-    RPG_HP=$(( 100 - RAM_USAGE_PCT )); 
-    
-    # STAMINA = Remaining CPU (100 - Used %)
-    RPG_STAMINA=$(( 100 - CPU_USAGE_PCT )); 
-    
-    # MP = Remaining Swap (100 - Used %)
-    RPG_MP=$(( 100 - SWAP_USAGE_PCT )); 
-    
-    if [ $RPG_HP -lt 0 ]; then RPG_HP=0; fi; 
-    if [ $RPG_STAMINA -lt 0 ]; then RPG_STAMINA=0; fi; 
-    if [ $RPG_MP -lt 0 ]; then RPG_MP=0; fi;
+    # Sanitize inputs to ensure numbers
+    re='^[0-9]+$'
+    if ! [[ $cpu =~ $re ]]; then cpu=0; fi
+    if ! [[ $ram =~ $re ]]; then ram=0; fi
+    if ! [[ $swap =~ $re ]]; then swap=0; fi
+
+    RPG_HP=$(( 100 - ram ))
+    RPG_STAMINA=$(( 100 - cpu ))
+    RPG_MP=$(( 100 - swap ))
 }
 
-# --- XP and Gold Logic ---
 grant_xp() {
-    XP_GAIN=$(( 1 + RANDOM % 3 )); RPG_XP=$(( RPG_XP + XP_GAIN )); RPG_XP_TO_NEXT_LEVEL=$(( 5 * RPG_LEVEL ));
+    local gain=$(( 1 + RANDOM % 3 ))
+    RPG_XP=$(( RPG_XP + gain ))
+    RPG_XP_TO_NEXT_LEVEL=$(( 5 * RPG_LEVEL ))
     if [ $RPG_XP -ge $RPG_XP_TO_NEXT_LEVEL ]; then
-        REMAINDER_XP=$(( RPG_XP - RPG_XP_TO_NEXT_LEVEL )); RPG_LEVEL=$(( RPG_LEVEL + 1 )); RPG_XP=$REMAINDER_XP;
-        echo -e "\n\e[32;1m[LEVEL UP!]\e[0m Congratulations, You are now level $RPG_LEVEL!."
+        local remainder=$(( RPG_XP - RPG_XP_TO_NEXT_LEVEL ))
+        RPG_LEVEL=$(( RPG_LEVEL + 1 ))
+        RPG_XP=$remainder
+        # Notify user (optional, can mess up drawing if not careful)
     fi
 }
+
 award_gold() {
-    local CURRENT_TIME=$(date +%s); local TIME_PASSED=$(( CURRENT_TIME - LAST_GOLD_TIME )); local AWARD_INTERVAL=1800; local MAX_TIME_PASSED=$(( 1800 * 2880 ));
-    if [ "$TIME_PASSED" -gt "$MAX_TIME_PASSED" ]; then LAST_GOLD_TIME=$CURRENT_TIME; echo -e "\n\e[33m[NOTICE]\e[0m Gold timer reset. Starting fresh count."; return 0; fi
-    if [ "$TIME_PASSED" -ge "$AWARD_INTERVAL" ]; then
-        local INTERVALS_PASSED=$(( TIME_PASSED / AWARD_INTERVAL )); local GOLD_PER_INTERVAL=$(( 1 + RANDOM % 10 )); 
-        local TOTAL_GOLD_AWARDED=$(( GOLD_PER_INTERVAL * INTERVALS_PASSED )); RPG_GOLD=$(( RPG_GOLD + TOTAL_GOLD_AWARDED ));
-        LAST_GOLD_TIME=$(( LAST_GOLD_TIME + (INTERVALS_PASSED * AWARD_INTERVAL) ));
-        echo -e "\n\e[33;1m[GOLD FOUND]\e[0m You worked hard and found $TOTAL_GOLD_AWARDED Gold! Total: $RPG_GOLD"
+    local now=$(date +%s)
+    local diff=$(( now - LAST_GOLD_TIME ))
+    local interval=1800
+    
+    if [ "$diff" -ge "$interval" ]; then
+        local intervals=$(( diff / interval ))
+        local award=$(( (1 + RANDOM % 10) * intervals ))
+        RPG_GOLD=$(( RPG_GOLD + award ))
+        LAST_GOLD_TIME=$(( LAST_GOLD_TIME + (intervals * interval) ))
     fi
 }
 
-# --- Settings and Control Functions ---
+repeat_char() {
+    local char="$1"
+    local count="$2"
+    local out=""
+    for ((i=0; i<count; i++)); do out="${out}${char}"; done
+    printf "%s" "$out"
+}
 
-# Displays compatibility checks.
-rpg_check() {
-    local exit_code=0
-    local required_cmds=("tput" "bc" "top" "free" "grep" "awk" "sed" "cut" "xargs")
-    local green="\e[32m"; local red="\e[31m"; local cyan="\e[36m"; local yellow="\e[33m"; local reset="\e[0m"
+# Revised pad_string: Just returns text + spaces. NO ESCAPE CODES.
+pad_string() {
+    local str="$1"
+    local width="$2"
+    local bonus="$3"
+    
+    # Strip ANSI codes to measure length
+    local clean_str=$(echo -e "$str" | sed 's/\x1b\[[0-9;]*m//g')
+    local len=${#clean_str}
+    
+    # Adjust for emojis if needed
+    local real_width=$(( len + bonus ))
+    local pad_len=$(( width - real_width ))
+    
+    if [ $pad_len -lt 0 ]; then pad_len=0; fi
+    
+    local padding=""
+    for ((i=0; i<pad_len; i++)); do padding="${padding} "; done
+    
+    printf "%b%s" "$str" "$padding"
+}
 
-    echo -e "\n\e[1m--- RPG BAR Compatibility Check ---\e[0m"
-    echo -e "Checking for required command-line utilities:\n"
+draw_rpg_hud() {
+    load_stats
+    update_stats; grant_xp; award_gold; save_stats
+    
+    # Set borders
+    local C_TL C_H C_TR C_V C_BL C_BR
+    if [ "$USE_ASCII_BORDERS" -eq 1 ]; then
+        C_TL="${BORDER_ASCII[0]}"; C_H="${BORDER_ASCII[1]}"; C_TR="${BORDER_ASCII[2]}"
+        C_V="${BORDER_ASCII[3]}"; C_BL="${BORDER_ASCII[4]}"; C_BR="${BORDER_ASCII[5]}"
+    else
+        C_TL="${BORDER_UNICODE[0]}"; C_H="${BORDER_UNICODE[1]}"; C_TR="${BORDER_UNICODE[2]}"
+        C_V="${BORDER_UNICODE[3]}"; C_BL="${BORDER_UNICODE[4]}"; C_BR="${BORDER_UNICODE[5]}"
+    fi
 
-    for cmd in "${required_cmds[@]}"; do
-        if command -v "$cmd" &> /dev/null; then
-            echo -e "  [ ${green}OK${reset} ] $cmd"
-        else
-            echo -e "  [ ${red}FAIL${reset} ] $cmd - Missing"
-            exit_code=1
+    local width=77
+    local line_h=$(repeat_char "$C_H" $width)
+    
+    # Prepare Content strings (With colors for text, but NO background codes yet)
+    local name_line=" \033[39mHero: \033[36m$USER\033[39m | Location: \033[35m$(pwd | sed "s|$HOME|~|")\033[39m "
+    
+    local stat_line=""
+    local bonus=0
+    if [ "$CAN_DISPLAY_EMOJI" -eq 1 ]; then
+        bonus=3
+        stat_line=" \033[39mLVL: \033[33m$RPG_LEVEL\033[39m | ${EMOJI_HP} HP: \033[31m$RPG_HP%\033[39m | ${EMOJI_SP}SP: \033[34m$RPG_STAMINA%\033[39m | ${EMOJI_MP}MP: \033[35m$RPG_MP%\033[39m | ${EMOJI_GOLD}\033[33m$RPG_GOLD G\033[39m | ${EMOJI_XP}XP: \033[32m$RPG_XP/$RPG_XP_TO_NEXT_LEVEL\033[39m "
+    else
+        stat_line=" \033[39mLVL: \033[33m$RPG_LEVEL\033[39m | HP: \033[31m$RPG_HP%\033[39m | SP: \033[34m$RPG_STAMINA%\033[39m | MP: \033[35m$RPG_MP%\033[39m | \033[33m$RPG_GOLD G\033[39m | XP: \033[32m$RPG_XP/$RPG_XP_TO_NEXT_LEVEL\033[39m "
+    fi
+
+    # Pad content (returns plain string with spaces)
+    local content1=$(pad_string "$name_line" $width 0)
+    local content2=$(pad_string "$stat_line" $width $bonus)
+
+    # --- DRAWING ---
+    # We use printf to handle the escape codes reliably.
+    # \033[K clears to end of line with the CURRENT background color.
+    
+    tput sc; tput cup 0 0
+    
+    # 1. Top Border
+    printf "%b\033[K%b%s%s%b\n" "$CURRENT_BG_CODE" "$COLOR_BORDER" "$C_TL" "$line_h" "$C_TR"
+    
+    # 2. Line 1
+    printf "%b\033[K%b%s\033[0m%b%b%b%s%b\n" "$CURRENT_BG_CODE" "$COLOR_BORDER" "$C_V" "$CURRENT_BG_CODE" "$content1" "$COLOR_BORDER" "$C_V" "$RESET"
+    
+    # 3. Line 2
+    printf "%b\033[K%b%s\033[0m%b%b%b%s%b\n" "$CURRENT_BG_CODE" "$COLOR_BORDER" "$C_V" "$CURRENT_BG_CODE" "$content2" "$COLOR_BORDER" "$C_V" "$RESET"
+    
+    # 4. Bottom Border
+    printf "%b\033[K%b%s%s%b%b" "$CURRENT_BG_CODE" "$COLOR_BORDER" "$C_BL" "$line_h" "$C_BR" "$RESET"
+
+    # 5. Reset for Prompt
+    tput cup 4 0
+    printf "\033[0m" # Hard reset
+    tput el
+    tput rc
+}
+
+rpg_color_menu() {
+    local options=("Black" "Gray" "Red" "Green" "Yellow" "Dark Blue" "Magenta" "Cyan" "White")
+    
+    while true; do
+        load_stats
+        echo -e "\n\033[1m--- Background Theme ---\033[0m"
+        echo -e "Current: $CURRENT_BG_CODE_NAME"
+        echo "------------------------"
+        for i in "${!options[@]}"; do
+            echo "[$((i+1))] ${options[$i]}"
+        done
+        echo "[Q] Back"
+        read -r -p "Select: " sel
+        
+        if [[ "$sel" =~ ^[0-9]+$ ]] && [ "$sel" -ge 1 ] && [ "$sel" -le 9 ]; then
+            CURRENT_BG_CODE_NAME="${options[$((sel-1))]}"
+            save_stats
+            echo -e "\033[32mTheme set to $CURRENT_BG_CODE_NAME\033[0m"
+        elif [[ "$sel" =~ [Qq] ]]; then
+            return 0
         fi
     done
-    
-    local emoji_status=$(check_emoji_support)
-    
-    echo -e "\nDisplay Settings (Saved):"
-    echo -e "  Emoji/Unicode: ${cyan}$([ $CAN_DISPLAY_EMOJI -eq 1 ] && echo 'ON' || echo 'OFF')${reset}"
-    echo -e "  ASCII Borders: ${cyan}$([ $USE_ASCII_BORDERS -eq 1 ] && echo 'ON' || echo 'OFF')${reset}"
-    
-    if [ "$emoji_status" -eq 1 ]; then
-        echo -e "  Terminal Unicode Test: [ ${green}OK${reset} ] 🌟"
-    else
-        echo -e "  Terminal Unicode Test: [ ${red}FAIL${reset} ] Terminal may not support UTF-8."
-        exit_code=1 
-    fi
-    
-    echo -e "\n---------------------------------------------------"
-    if [ $exit_code -eq 0 ]; then
-        echo -e "${green}SUCCESS:${reset} All critical dependencies are present."
-    else
-        echo -e "${red}WARNING:${reset} Issues found. Use '${yellow}rpgbar --settings${reset}' to adjust display options."
-    fi 
-    echo "---------------------------------------------------"
-    return $exit_code
 }
 
-# Resets the save file.
-rpg_reset() {
-    if [ -f "$RPG_SAVE_FILE" ]; then
-        rm "$RPG_SAVE_FILE"
-        echo -e "\n\e[32m[RESET]\e[0m RPG BAR save file has been reset. Stats will re-initialize on next load."
-        load_stats 
-    else
-        echo -e "\n\e[33m[NOTICE]\e[0m RPG BAR save file not found. Nothing to reset."
-    fi
-}
-
-# Interactive Settings Menu
 rpg_settings_menu() {
-    local cyan="\e[36m"; local green="\e[32m"; local yellow="\e[33m"; local red="\e[31m"; local reset="\e[0m"
-
     while true; do
-        load_stats 
-        echo -e "\n\e[1m--- RPG BAR Display Settings ---\e[0m"
-        echo -e "  [1] Toggle Emojis (Current: ${cyan}$([ $CAN_DISPLAY_EMOJI -eq 1 ] && echo 'ON' || echo 'OFF')${reset})"
-        echo -e "  [2] Toggle ASCII Borders (Current: ${cyan}$([ $USE_ASCII_BORDERS -eq 1 ] && echo 'ON' || echo 'OFF')${reset})"
-        echo "  [Q] Back to Shell"
-        echo -e "--------------------------------"
-        read -r -p "Select an option (1, 2, or Q): " selection
-
-        case "$selection" in
-            1) 
-                CAN_DISPLAY_EMOJI=$(( 1 - CAN_DISPLAY_EMOJI ))
-                save_stats
-                echo -e "${green}[SETTING]${reset} Emojis set to ${cyan}$([ $CAN_DISPLAY_EMOJI -eq 1 ] && echo 'ON' || echo 'OFF')${reset}."
-                ;;
-            2) 
-                USE_ASCII_BORDERS=$(( 1 - USE_ASCII_BORDERS ))
-                save_stats
-                echo -e "${green}[SETTING]${reset} ASCII Borders set to ${cyan}$([ $USE_ASCII_BORDERS -eq 1 ] && echo 'ON' || echo 'OFF')${reset}."
-                ;;
-            [Qq])
-                echo -e "${yellow}[NOTICE]${reset} Exiting settings menu."
-                return 0
-                ;;
-            *)
-                echo -e "${red}[ERROR]${reset} Invalid selection. Please try again."
-                ;;
+        load_stats
+        echo -e "\n\033[1m--- RPG Settings ---\033[0m"
+        echo "[1] Toggle Emojis (Current: $CAN_DISPLAY_EMOJI)"
+        echo "[2] Toggle ASCII (Current: $USE_ASCII_BORDERS)"
+        echo "[3] Change Theme"
+        echo "[Q] Exit"
+        read -r -p "Opt: " opt
+        case "$opt" in
+            1) CAN_DISPLAY_EMOJI=$((1-CAN_DISPLAY_EMOJI)); save_stats ;;
+            2) USE_ASCII_BORDERS=$((1-USE_ASCII_BORDERS)); save_stats ;;
+            3) rpg_color_menu ;;
+            [Qq]) return 0 ;;
         esac
     done
 }
 
-# Help documentation
-rpg_help() {
-    local cyan="\e[36m"; local green="\e[32m"; local yellow="\e[33m"; local reset="\e[0m"
-
-    echo -e "\n\e[1m--- RPG BAR HELP & SETUP --\e[0m"
-    
-    echo -e "## 🚀 Quick Setup"
-    echo -e "1. Save the script as \e[36mrpgbar\e[0m and place it somewhere in your \$PATH (e.g., ${cyan}~/.local/bin/${reset})."
-    echo -e "2. Make it executable: \e[36mchmod +x /path/to/rpgbar\e[0m"
-    echo -e "3. ${green}Permanent Enable (Recommended):${reset} Add the following line to your ${cyan}~/.bashrc${reset} or ${cyan}~/.zshrc${reset}:"
-    echo -e "   ${cyan}source /path/to/rpgbar${reset}"
-    echo -e "4. ${yellow}Temporary Run:${reset} Execute ${cyan}source /path/to/rpgbar${reset} in your current session."
-
-    echo -e "\n## ✨ Available Commands"
-    echo -e "These commands are run by executing the script directly, e.g., ${cyan}rpgbar --help${reset}."
-    
-    # Using echo -e for better ANSI code handling
-    echo -e "--help          | Shows this help screen."
-    echo -e "--check         | Runs a compatibility test for required tools and display settings."
-    echo -e "--settings      | Opens the interactive menu to toggle display options (Emojis/ASCII)."
-    echo -e "--reset         | Deletes the save file (${cyan}$RPG_SAVE_FILE${reset}) and resets all stats and settings."
-    
-    echo -e "\n---------------------------------------------------"
-}
-
-# --- String Repetition Helper ---
-repeat_char() {
-    local char="$1"
-    local count="$2"
-    local output=""
-    # Loop to append the character 'count' times
-    for ((i=0; i<count; i++)); do
-        output="${output}${char}"
+rpg_check() {
+    echo "Checking dependencies..."
+    for cmd in tput bc grep awk sed; do
+        if command -v $cmd &>/dev/null; then echo "$cmd: OK"; else echo "$cmd: MISSING"; fi
     done
-    echo "$output"
 }
 
-
-# --- ASCII Border Helper ---
-pad_string() {
-    local str="$1"; 
-    local total_width="$2"; 
-    local bonus_width="${3:-0}"; 
-    
-    # Padding character is ONLY black BG (to be uniform)
-    local fill_char="\e[40m "; 
-    
-    # Calculate character length, ignoring ANSI color codes
-    local str_len=$(echo -e "$str" | sed 's/\x1b\[[0-9;]*m//g' | wc -m);
-    if [ "$str_len" -gt 1 ]; then str_len=$(( str_len - 1 )); fi;
-    
-    # Use the bonus width to adjust the calculated string length
-    local actual_display_width=$(( str_len + bonus_width ))
-    
-    local padding_needed=$(( total_width - actual_display_width )); 
-    local padding="";
-    
-    for (( i=0; i<padding_needed; i++ )); do padding="${padding}${fill_char}"; done
-    
-    # Ensure content ends ONLY with Black BG before the padding starts
-    echo -e "$str\e[40m$padding"
+rpg_reset() {
+    rm -f "$RPG_SAVE_FILE"
+    echo "Stats reset."
 }
 
-
-# --- Main HUD Drawing Hook (4-Line) ---
-
-draw_rpg_hud() {
-    # 1. Update Game and System Stats and award logic
-    update_stats; grant_xp; award_gold; save_stats;
-    if [ "$CAN_DISPLAY_EMOJI" -eq 0 ] && [ "$USE_ASCII_BORDERS" -eq 0 ]; then USE_ASCII_BORDERS=1; fi
-
-    # 2. Get Dynamic Terminal Info
-    HERO_NAME="$USER"; CURRENT_LOCATION=$(pwd); 
-    if [ ${#CURRENT_LOCATION} -gt 30 ]; then CURRENT_LOCATION="...${CURRENT_LOCATION: -28}"; fi
-
-    # 3. Determine Width, Borders, and Emoji Compensation
-    local BOX_WIDTH=77; local CORNER_TOP_LEFT; local LINE_HORIZONTAL; local CORNER_TOP_RIGHT; local CORNER_BOTTOM_LEFT; local CORNER_BOTTOM_RIGHT; local SIDE_BORDER_CHAR;
-    
-    local BONUS_WIDTH=0
-    if [ "$CAN_DISPLAY_EMOJI" -eq 1 ]; then
-        BONUS_WIDTH=3 
-    fi
-    
-    if [ "$USE_ASCII_BORDERS" -eq 1 ]; then
-        CORNER_TOP_LEFT="${BORDER_ASCII[0]}"; LINE_HORIZONTAL="${BORDER_ASCII[1]}"; CORNER_TOP_RIGHT="${BORDER_ASCII[2]}";
-        SIDE_BORDER_CHAR="${BORDER_ASCII[3]}"; # Vertical border character
-        CORNER_BOTTOM_LEFT="${BORDER_ASCII[4]}"; CORNER_BOTTOM_RIGHT="${BORDER_ASCII[5]}";
+rpgbar_main() {
+    # If arguments are passed, handle them
+    if [ -n "$1" ]; then
+        case "$1" in
+            --check) rpg_check ;;
+            --reset) rpg_reset ;;
+            --settings) rpg_settings_menu ;;
+            --help) echo "Usage: source rpgbar OR rpgbar --settings" ;;
+        esac
     else
-        CORNER_TOP_LEFT="${BORDER_UNICODE[0]}"; LINE_HORIZONTAL="${BORDER_UNICODE[1]}"; CORNER_TOP_RIGHT="${BORDER_UNICODE[2]}";
-        SIDE_BORDER_CHAR="${BORDER_UNICODE[3]}"; # Vertical border character
-        CORNER_BOTTOM_LEFT="${BORDER_UNICODE[4]}"; CORNER_BOTTOM_RIGHT="${BORDER_UNICODE[5]}";
+        # If no arguments, assume we are setting up the prompt
+        load_stats
+        PROMPT_COMMAND="draw_rpg_hud"
     fi
-    
-    # 4. Construct the Box Elements with color codes
-    HORIZONTAL_LINE_STR=$(repeat_char "$LINE_HORIZONTAL" "$BOX_WIDTH")
-    
-    TOP_BORDER="${COLOR_BORDER}${CORNER_TOP_LEFT}${HORIZONTAL_LINE_STR}${CORNER_TOP_RIGHT}"
-    BOTTOM_BORDER="${COLOR_BORDER}${CORNER_BOTTOM_LEFT}${HORIZONTAL_LINE_STR}${CORNER_BOTTOM_RIGHT}"
-    
-    # Line 2: Hero Name and Location (Content)
-    # FIX: Apply BG 40 to the leading space.
-    STATUS_LINE1="\e[40;39m Hero:\e[40m \e[40;36m$HERO_NAME\e[40m | \e[40;39mLocation:\e[40m \e[40;35m$CURRENT_LOCATION\e[40m "
-    PADDED_LINE1=$(pad_string "$STATUS_LINE1" $BOX_WIDTH 0)
-
-    # Line 3: Core Stats (Content)
-    if [ "$CAN_DISPLAY_EMOJI" -eq 1 ]; then
-        # FIX: Apply BG 40 to the leading space.
-        STATUS_LINE2="\e[40;39m LVL:\e[40m \e[40;33m$RPG_LEVEL\e[40m | ${EMOJI_HP} \e[40;39mHP:\e[40m \e[40;31m$RPG_HP%\e[40m | ${EMOJI_SP}\e[40;39mSP:\e[40m \e[40;34m$RPG_STAMINA%\e[40m | ${EMOJI_MP}\e[40;39mMP:\e[40m \e[40;35m$RPG_MP%\e[40m | ${EMOJI_GOLD}\e[40;33m$RPG_GOLD G\e[40m | ${EMOJI_XP}\e[40;39mXP:\e[40m \e[40;32m$RPG_XP/$RPG_XP_TO_NEXT_LEVEL\e[40m "
-    else
-        # FIX: Apply BG 40 to the leading space.
-        STATUS_LINE2="\e[40;39m LVL:\e[40m \e[40;33m$RPG_LEVEL\e[40m | \e[40;39mHP:\e[40m \e[40;31m$RPG_HP%\e[40m | \e[40;39mSP:\e[40m \e[40;34m$RPG_STAMINA%\e[40m | \e[40;39mMP:\e[40m \e[40;35m$RPG_MP%\e[40m | \e[40;33m$RPG_GOLD G\e[40m | \e[40;39mXP:\e[40m \e[40;32m$RPG_XP/$RPG_XP_TO_NEXT_LEVEL\e[40m "
-    fi
-    PADDED_LINE2=$(pad_string "$STATUS_LINE2" $BOX_WIDTH $BONUS_WIDTH)
-
-    
-    # 5. EXECUTE DRAWING 
-    tput sc; tput cup 0 0;
-    
-    # The \e[K clears the line to default terminal BG. \e[40m sets the BG for the box.
-    
-    # Top Border
-    echo -e "\e[K\e[40m$TOP_BORDER\e[0m"     # Line 0 
-    
-    # Line 1 (Content)
-    echo -e "\e[K\e[40m${COLOR_BORDER}${SIDE_BORDER_CHAR}\e[0m$PADDED_LINE1${COLOR_BORDER}${SIDE_BORDER_CHAR}\e[0m" 
-    
-    # Line 2 (Stats)
-    echo -e "\e[K\e[40m${COLOR_BORDER}${SIDE_BORDER_CHAR}\e[0m$PADDED_LINE2${COLOR_BORDER}${SIDE_BORDER_CHAR}\e[0m" 
-    
-    # Bottom Border
-    echo -e "\e[K\e[40m$BOTTOM_BORDER\e[0m"  # Line 3
-    
-    # Move the cursor to the exact start of the prompt area (Line 4, Column 0)
-    tput cup 4 0; tput el 
-    
-    tput rc # Restore cursor to the SAVED position.
 }
 
-# ====================================================================
-# --- Execution Start (Command Line Argument Handling) ---
-# ====================================================================
+# Execution Logic
+# If run directly (executable) OR sourced with arguments
+if [[ "${BASH_SOURCE[0]}" == "$0" ]] || [[ -n "$1" ]]; then
+    rpgbar_main "$@"
+fi
 
-# 1. Load data from the save file
-load_stats
-
-# Check for commands
-case "$1" in
-    --check)
-        rpg_check
-        return
-        ;;
-    --reset)
-        rpg_reset
-        return
-        ;;
-    --settings)
-        rpg_settings_menu
-        return
-        ;;
-    --help)
-        rpg_help
-        return
-        ;;
-esac
-
-# 2. Set the PROMPT_COMMAND hook if no arguments were given
-PROMPT_COMMAND="draw_rpg_hud"
+# If sourced (interactive shell setup) without arguments
+if [[ "${BASH_SOURCE[0]}" != "$0" ]] && [[ -z "$1" ]]; then
+    rpgbar_main
+fi

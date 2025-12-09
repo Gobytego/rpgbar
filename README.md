@@ -3,7 +3,9 @@
 The **RPG BAR** is a Bash shell script designed to gamify your terminal experience by providing a persistent Heads-Up Display (HUD) that monitors your system resources and tracks personal progress.
 
 Your system's **CPU** and **RAM** usage are translated into your character's Stamina and Health, providing a fun, real-time visual indicator of your machine's performance right above your prompt.
-<img align="center" width="900" src="https://github.com/Gobytego/rpgbar/blob/main/rpgbar.png">
+<img align="center" width="900" src="https://github.com/Gobytego/rpgbar/blob/main/rpgbar1.png">
+<img align="center" width="900" src="https://github.com/Gobytego/rpgbar/blob/main/rpgbar2.png">
+<img align="center" width="900" src="https://github.com/Gobytego/rpgbar/blob/main/rpgbar3.png">
 ## ✨ Features
 
 * **Real-time Monitoring:** Tracks CPU (Stamina/SP) and RAM (Health/HP) usage.

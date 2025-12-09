@@ -48,3 +48,15 @@ source ~/.local/bin/rpgbar --help
 * --check	Runs a compatibility test for required system utilities (tput, bc, top, etc.) and displays current setting status.
 * --settings	Opens an interactive menu to toggle display options (Emojis/Unicode and ASCII Borders).
 * --reset	Deletes the save file ($HOME/.rpgbar.save) and resets your Level, XP, Gold, and all display settings to default.
+
+### Known Bugs
+when clearing the screen 'clear' and also in some other cases your prompt might overlay the bar. 
+easy fix for now is press enter a few times or just start using the terminal as normal and it will eventually align.
+another way to fix this at least on startup from your .bashrc is put 4 or so echo "" before the source /path/to/rpgbar
+```bash
+echo ""
+echo ""
+echo ""
+echo ""
+source ~/.local/bin/rpgbar --help
+```

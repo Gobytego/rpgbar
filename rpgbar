@@ -207,15 +207,17 @@ draw_rpg_hud() {
     local line_h=$(repeat_char "$C_H" $width)
     
     # Prepare Content strings 
-    # NOTE: We use \033[39m to reset Foreground color only, keeping Background active
     
-    # FIX: Get PWD, truncate only if massive, but do NOT replace with ~
+    # **NEW FIX:** Use the `hostname` command explicitly
+    local current_host=$(hostname)
+    
     local raw_loc=$(pwd)
     if [ ${#raw_loc} -gt 30 ]; then
         raw_loc="...${raw_loc: -27}"
     fi
     
-    local name_line=" \033[39mHero: \033[36m$USER\033[39m | Location: \033[35m$raw_loc\033[39m "
+    # Use the reliable current_host variable
+    local name_line=" \033[39mHero: \033[36m$USER\033[39m | World: \033[36m$current_host\033[39m | Location: \033[35m$raw_loc\033[39m "
     
     local stat_line=""
     local bonus=0
@@ -232,9 +234,6 @@ draw_rpg_hud() {
 
     # --- DRAWING ---
     tput sc; tput cup 0 0
-    
-    # FIX: We RESET (\033[0m) then CLEAR LINE (\033[K) *before* painting the box.
-    # This prevents the BG color from extending to the right edge.
     
     # 1. Top Border
     printf "\033[0m\033[K%b%b%s%s%b\033[0m\n" "$CURRENT_BG_CODE" "$COLOR_BORDER" "$C_TL" "$line_h" "$C_TR"

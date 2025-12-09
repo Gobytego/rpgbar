@@ -19,7 +19,7 @@ Your system's **CPU** and **RAM** usage are translated into your character's Sta
 
 ### 1. Save the Script
 
-1.  Save the complete script content (File 1 above) to a file named `rpgbar` (or `rpgbar.sh`) in a directory that is included in your system's `$PATH`.
+1.  Save the complete script content to a file named `rpgbar` (or `rpgbar.sh`) in a directory that is included in your system's `$PATH`.
     * **Recommended Location:** `~/.local/bin/rpgbar`
 
 2.  Make the script executable:

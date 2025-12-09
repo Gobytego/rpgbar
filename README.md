@@ -6,6 +6,7 @@ Your system's **CPU** and **RAM** usage are translated into your character's Sta
 <img align="center" width="900" src="https://github.com/Gobytego/rpgbar/blob/main/rpgbar1.png">
 <img align="center" width="900" src="https://github.com/Gobytego/rpgbar/blob/main/rpgbar2.png">
 <img align="center" width="900" src="https://github.com/Gobytego/rpgbar/blob/main/rpgbar3.png">
+<img align="center" width="900" src="https://github.com/Gobytego/rpgbar/blob/main/rpgbar4.png">
 ## ✨ Features
 
 * **Real-time Monitoring:** Tracks CPU (Stamina/SP) and RAM (Health/HP) usage.

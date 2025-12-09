@@ -142,7 +142,6 @@ grant_xp() {
         local remainder=$(( RPG_XP - RPG_XP_TO_NEXT_LEVEL ))
         RPG_LEVEL=$(( RPG_LEVEL + 1 ))
         RPG_XP=$remainder
-        # Notify user (optional, can mess up drawing if not careful)
     fi
 }
 
@@ -167,7 +166,7 @@ repeat_char() {
     printf "%s" "$out"
 }
 
-# Revised pad_string: Just returns text + spaces. NO ESCAPE CODES.
+# Revised pad_string: Just returns text + spaces.
 pad_string() {
     local str="$1"
     local width="$2"
@@ -186,6 +185,7 @@ pad_string() {
     local padding=""
     for ((i=0; i<pad_len; i++)); do padding="${padding} "; done
     
+    # Return string + padding (spaces will inherit BG color when printed later)
     printf "%b%s" "$str" "$padding"
 }
 
@@ -206,7 +206,8 @@ draw_rpg_hud() {
     local width=77
     local line_h=$(repeat_char "$C_H" $width)
     
-    # Prepare Content strings (With colors for text, but NO background codes yet)
+    # Prepare Content strings 
+    # NOTE: We use \033[39m to reset Foreground color only, keeping Background active
     local name_line=" \033[39mHero: \033[36m$USER\033[39m | Location: \033[35m$(pwd | sed "s|$HOME|~|")\033[39m "
     
     local stat_line=""
@@ -218,32 +219,31 @@ draw_rpg_hud() {
         stat_line=" \033[39mLVL: \033[33m$RPG_LEVEL\033[39m | HP: \033[31m$RPG_HP%\033[39m | SP: \033[34m$RPG_STAMINA%\033[39m | MP: \033[35m$RPG_MP%\033[39m | \033[33m$RPG_GOLD G\033[39m | XP: \033[32m$RPG_XP/$RPG_XP_TO_NEXT_LEVEL\033[39m "
     fi
 
-    # Pad content (returns plain string with spaces)
+    # Pad content
     local content1=$(pad_string "$name_line" $width 0)
     local content2=$(pad_string "$stat_line" $width $bonus)
 
     # --- DRAWING ---
-    # We use printf to handle the escape codes reliably.
-    # \033[K clears to end of line with the CURRENT background color.
-    
     tput sc; tput cup 0 0
     
+    # FIX: We RESET (\033[0m) then CLEAR LINE (\033[K) *before* painting the box.
+    # This prevents the BG color from extending to the right edge.
+    
     # 1. Top Border
-    printf "%b\033[K%b%s%s%b\n" "$CURRENT_BG_CODE" "$COLOR_BORDER" "$C_TL" "$line_h" "$C_TR"
+    printf "\033[0m\033[K%b%b%s%s%b\033[0m\n" "$CURRENT_BG_CODE" "$COLOR_BORDER" "$C_TL" "$line_h" "$C_TR"
     
     # 2. Line 1
-    printf "%b\033[K%b%s\033[0m%b%b%b%s%b\n" "$CURRENT_BG_CODE" "$COLOR_BORDER" "$C_V" "$CURRENT_BG_CODE" "$content1" "$COLOR_BORDER" "$C_V" "$RESET"
+    printf "\033[0m\033[K%b%b%s\033[0m%b%s%b%b%s\033[0m\n" "$CURRENT_BG_CODE" "$COLOR_BORDER" "$C_V" "$CURRENT_BG_CODE" "$content1" "$CURRENT_BG_CODE" "$COLOR_BORDER" "$C_V"
     
     # 3. Line 2
-    printf "%b\033[K%b%s\033[0m%b%b%b%s%b\n" "$CURRENT_BG_CODE" "$COLOR_BORDER" "$C_V" "$CURRENT_BG_CODE" "$content2" "$COLOR_BORDER" "$C_V" "$RESET"
+    printf "\033[0m\033[K%b%b%s\033[0m%b%s%b%b%s\033[0m\n" "$CURRENT_BG_CODE" "$COLOR_BORDER" "$C_V" "$CURRENT_BG_CODE" "$content2" "$CURRENT_BG_CODE" "$COLOR_BORDER" "$C_V"
     
     # 4. Bottom Border
-    printf "%b\033[K%b%s%s%b%b" "$CURRENT_BG_CODE" "$COLOR_BORDER" "$C_BL" "$line_h" "$C_BR" "$RESET"
+    printf "\033[0m\033[K%b%b%s%s%b\033[0m" "$CURRENT_BG_CODE" "$COLOR_BORDER" "$C_BL" "$line_h" "$C_BR"
 
     # 5. Reset for Prompt
     tput cup 4 0
-    printf "\033[0m" # Hard reset
-    tput el
+    printf "\033[0m\033[K" # Hard reset and clear prompt line
     tput rc
 }
 
